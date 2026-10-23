@@ -119,6 +119,7 @@ jobs:
           ls -R dist
           cd dist
           gh release create "${GITHUB_REF_NAME}" \
+            -R "${{ github.repository }}" \
             "DiskGuard-Windows-x64/DiskGuard_0.1.0_x64-setup.exe" \
             "DiskGuard-Windows-x64/DiskGuard-Portable-x64.zip" \
             "DiskGuard-Core-TestSigned-x64/DiskGuard-Core-TestSigned-x64.zip" \
