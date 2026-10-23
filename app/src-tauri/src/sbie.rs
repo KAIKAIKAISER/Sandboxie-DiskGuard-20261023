@@ -24,7 +24,7 @@ const CONF_GET_NO_TEMPLS: u32 = 0x1000_0000;
 const API_MONITOR_GET2: u32 = 161;
 // STATUS_MORE_ENTRIES（NTSTATUS 警告级，NT_SUCCESS 为真）
 pub const STATUS_MORE_ENTRIES: i32 = 0x0000_0105;
-pub const STATUS_NO_MORE_ENTRIES: i32 = 0x8000_011A as i32;
+pub const STATUS_NO_MORE_ENTRIES: i32 = 0x8000_011Au32 as i32;
 pub const STATUS_DEVICE_NOT_READY: i32 = 0xC000_00A3u32 as i32;
 
 type FnGetHomePath = unsafe extern "system" fn(*mut u16, u32, *mut u16, u32) -> i32;
