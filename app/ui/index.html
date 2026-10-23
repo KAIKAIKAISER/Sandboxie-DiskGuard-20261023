@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DiskGuard · 磁盘访问控制</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <aside id="sidebar">
+      <div class="brand">
+        <div class="logo">DG</div>
+        <div class="brand-text"><b>DiskGuard</b><span>磁盘访问控制</span></div>
+      </div>
+      <nav id="nav">
+        <button class="nav-btn active" data-view="apps"><span class="ico">🛡</span>软件管理</button>
+        <button class="nav-btn" data-view="logs"><span class="ico">📜</span>访问日志</button>
+        <button class="nav-btn" data-view="settings"><span class="ico">⚙</span>设置</button>
+      </nav>
+      <div class="sidebar-footer">
+        <div id="status-chip" class="chip warn"><span class="dot"></span><span id="status-text">检测中…</span></div>
+      </div>
+    </aside>
+
+    <main id="main">
+      <!-- ============ 软件管理 ============ -->
+      <section id="view-apps" class="view active">
+        <div class="view-head">
+          <h1>软件管理</h1>
+          <button id="btn-add-app" class="btn primary">＋ 添加程序</button>
+        </div>
+        <div id="sbie-missing" class="notice hidden">
+          未检测到 Sandboxie 核心组件（驱动/服务）。请先安装 Sandboxie Plus 或本仓库提供的核心包，
+          安装并重启后 DiskGuard 会自动接管。<span id="sbie-missing-msg"></span>
+        </div>
+        <div id="apps-grid" class="cards"></div>
+
+        <!-- 添加表单 -->
+        <div id="add-dialog" class="modal hidden">
+          <div class="modal-box">
+            <h2>添加受控程序</h2>
+            <label>显示名称</label>
+            <input id="add-name" type="text" placeholder="例如：QQ" />
+            <label>程序路径（.exe）</label>
+            <div class="row">
+              <input id="add-exe" type="text" placeholder="C:\Program Files\...\app.exe" />
+              <button id="btn-browse-exe" class="btn">浏览…</button>
+            </div>
+            <p class="hint">添加后默认进入“只监控”模式并开启启动强制沙箱，可随时在详情中调整。</p>
+            <div class="modal-actions">
+              <button id="add-cancel" class="btn">取消</button>
+              <button id="add-ok" class="btn primary">添加</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 详情编辑 -->
+        <div id="detail-dialog" class="modal hidden">
+          <div class="modal-box wide">
+            <h2 id="detail-title">软件详情</h2>
+
+            <div class="detail-grid">
+              <div class="field">
+                <label>显示名称</label>
+                <input id="detail-name" type="text" />
+              </div>
+              <div class="field">
+                <label>程序路径</label>
+                <div class="row">
+                  <input id="detail-exe" type="text" />
+                  <button id="detail-browse-exe" class="btn">浏览…</button>
+                </div>
+              </div>
+              <div class="field">
+                <label>沙箱（盒子）</label>
+                <input id="detail-box" type="text" disabled />
+              </div>
+              <div class="field">
+                <label>运行状态</label>
+                <div id="detail-running" class="static-text">—</div>
+              </div>
+            </div>
+
+            <div class="field">
+              <label>磁盘访问模式</label>
+              <div class="mode-row">
+                <label class="mode-opt"><input type="radio" name="detail-mode" value="monitor" /><b>只监控</b><span>记录全部访问，不做限制</span></label>
+                <label class="mode-opt"><input type="radio" name="detail-mode" value="blacklist" /><b>黑名单</b><span>列出的目录拒绝读写</span></label>
+                <label class="mode-opt"><input type="radio" name="detail-mode" value="whitelist" /><b>白名单</b><span>封闭根内仅放行白名单目录</span></label>
+              </div>
+              <p id="mode-desc" class="hint"></p>
+            </div>
+
+            <div class="field">
+              <div class="label-row">
+                <label id="rules-label">规则目录</label>
+                <button id="btn-add-rule" class="btn small">＋ 添加规则</button>
+              </div>
+              <div id="rules-list" class="rule-list"></div>
+            </div>
+
+            <div id="closed-roots-block" class="field hidden">
+              <div class="label-row">
+                <label>默认封闭根（这些根内除白名单外全部拒绝）</label>
+                <button id="btn-add-root" class="btn small">＋ 添加封闭根</button>
+              </div>
+              <div id="roots-list" class="rule-list"></div>
+            </div>
+
+            <div class="field">
+              <label>自动保护</label>
+              <label class="check"><input id="detail-force" type="checkbox" /> 受控程序启动时自动进入沙箱（ForceProcess）</label>
+              <label class="check"><input id="detail-force-folder" type="checkbox" /> 按安装目录强制，覆盖同目录程序与子进程（ForceFolder）</label>
+              <label class="check"><input id="detail-enabled" type="checkbox" /> 启用该软件的保护</label>
+            </div>
+
+            <div class="modal-actions spread">
+              <div class="left">
+                <button id="detail-launch" class="btn">启动</button>
+                <button id="detail-terminate" class="btn">终止沙箱内进程</button>
+                <button id="detail-open-folder" class="btn">打开沙箱目录</button>
+                <button id="detail-remove" class="btn danger">移除保护</button>
+              </div>
+              <div class="right">
+                <button id="detail-cancel" class="btn">关闭</button>
+                <button id="detail-save" class="btn primary">保存并应用</button>
+              </div>
+            </div>
+            <p id="detail-msg" class="hint"></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 访问日志 ============ -->
+      <section id="view-logs" class="view">
+        <div class="view-head">
+          <h1>实时访问日志</h1>
+          <div class="head-actions">
+            <button id="btn-export-csv" class="btn small">导出 CSV</button>
+            <button id="btn-export-jsonl" class="btn small">导出 JSONL</button>
+            <button id="btn-clear-log" class="btn small">清空显示</button>
+          </div>
+        </div>
+        <p class="hint">
+          事件为程序对文件/目录的<b>打开操作</b>（含期望访问权限），“拒绝”为被规则拦截的打开。
+          目录枚举与逐字节读写不由驱动单独上报，故不构成独立事件 —— 这是 Sandboxie 驱动的真实行为。
+        </p>
+        <div class="log-toolbar">
+          <input id="log-search" type="text" placeholder="搜索路径 / 进程…" />
+          <select id="filter-result">
+            <option value="">结果：全部</option>
+            <option value="deny">仅拒绝</option>
+            <option value="allow">仅允许</option>
+          </select>
+          <select id="filter-kind">
+            <option value="">类型：全部</option>
+            <option value="file">文件</option>
+            <option value="pipe">管道</option>
+            <option value="image">映像</option>
+            <option value="registry">注册表</option>
+            <option value="drive">磁盘设备</option>
+            <option value="other">其他</option>
+          </select>
+          <label class="check inline"><input id="log-autoscroll" type="checkbox" checked /> 自动滚动</label>
+          <span id="log-stats" class="muted"></span>
+        </div>
+        <div class="table-wrap">
+          <table id="log-table">
+            <thead>
+              <tr><th>时间</th><th>进程</th><th>PID</th><th>沙箱</th><th>路径</th><th>操作</th><th>结果</th></tr>
+            </thead>
+            <tbody id="log-body"></tbody>
+          </table>
+          <div id="log-empty" class="empty">暂无事件。受控程序运行且监视线程激活后，这里将实时显示其文件访问。</div>
+        </div>
+      </section>
+
+      <!-- ============ 设置 ============ -->
+      <section id="view-settings" class="view">
+        <div class="view-head"><h1>设置</h1></div>
+
+        <div class="card">
+          <h3>Sandboxie 核心状态</h3>
+          <div id="settings-status" class="kv"></div>
+          <p class="hint">
+            DiskGuard 复用 Sandboxie 的内核驱动（SbieDrv）、服务（SbieSvc）与 SbieDll API，
+            本身不包含驱动。核心未安装时可使用 Sandboxie Plus 官方安装包或本仓库 Release 中的核心包。
+          </p>
+        </div>
+
+        <div class="card">
+          <h3>外观与启动</h3>
+          <div class="kv">
+            <div class="kv-row"><span>主题</span>
+              <select id="pref-theme">
+                <option value="auto">跟随系统</option>
+                <option value="light">浅色</option>
+                <option value="dark">深色</option>
+              </select>
+            </div>
+            <div class="kv-row"><span>开机自动启动</span><input id="pref-autostart" type="checkbox" /></div>
+            <div class="kv-row"><span>关闭窗口时最小化到托盘</span><input id="pref-close-tray" type="checkbox" /></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>关于</h3>
+          <p class="hint">
+            DiskGuard v0.1.0 · 磁盘访问限制器（Windows 10/11 x64）。<br />
+            底层组件来自 <a href="#" data-url="https://github.com/sandboxie-plus/Sandboxie">Sandboxie Plus</a>（GPL-3.0），
+            本项目同样以 GPL-3.0 发布；详见仓库 DISKGUARD.md。
+          </p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="app.js"></script>
+</body>
+</html>

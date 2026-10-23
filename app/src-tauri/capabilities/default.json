@@ -1,0 +1,6 @@
+{
+  "identifier": "default",
+  "description": "DiskGuard main window capabilities",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

@@ -1,0 +1,50 @@
+*==========
+* Missing Messages in Text-Ukrainian-1058.txt
+*==========
+
+1205;evt;pop;err;01
+SBIE1205 Invalid DynData found in registry, error: %2
+.
+
+1206;evt;pop;err;01
+SBIE1206 Your Windows build (%2) is not yet supported by sandboxie, error: %3
+.
+
+1207;pop;err;01
+SBIE1207 Your Windows build (%2) is not yet supported by Sandboxie, which means applications will run without security isolation!
+.
+
+1305;pop;inf;02
+SBIE1305 Blocked sandboxed image from being loaded - %2
+.
+
+1317;pop;inf;02
+SBIE1317 Blocked '%2' from trying to access sandbox file root '%3'
+.
+
+1318;pop;inf;02
+SBIE1318 Blocked '%2' from trying to access sandboxed process '%3'
+.
+
+6008;pop;err;01
+The configuration %3 of box %2 requires a supporter certificate and can not be used without it.
+.
+
+6009;pop;err;01
+The configuration %3 of box %2 requires an advanced supporter certificate.
+.
+
+*==========
+* Extraneous Messages in Text-Ukrainian-1058.txt
+*==========
+
+1205;pop;err;01
+SBIE1205 1206;pop;err;01
+SBIE1206 1207;pop;wrn;01
+SBIE1207 1305;pop;inf;01
+SBIE1305 1317;pop;inf;01
+SBIE1317 1318;pop;inf;01
+SBIE1318 6008;txt;01
+6009;txt;01
+
+
