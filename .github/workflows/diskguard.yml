@@ -1,0 +1,132 @@
+name: DiskGuard Build
+
+on:
+  workflow_dispatch:
+
+  push:
+    branches: [master]
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build-app:
+    name: Build DiskGuard (Tauri 2)
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+
+      - name: Install Tauri CLI
+        shell: pwsh
+        run: npm install --global "@tauri-apps/cli@^2"
+
+      - name: Build (NSIS installer)
+        shell: pwsh
+        working-directory: app/src-tauri
+        run: tauri build --bundles nsis
+
+      - name: Collect artifacts
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item app/src-tauri/target/release/bundle/nsis/*.exe dist/
+          Copy-Item app/src-tauri/target/release/diskguard.exe dist/DiskGuard.exe
+          Copy-Item app/PORTABLE-README.txt dist/README-Portable.txt
+          Compress-Archive -Path dist/DiskGuard.exe, dist/README-Portable.txt `
+            -DestinationPath dist/DiskGuard-Portable-x64.zip -Force
+          Get-ChildItem dist | Format-Table Name, Length
+
+      - name: Upload app artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: DiskGuard-Windows-x64
+          path: dist/*
+          if-no-files-found: error
+
+  build-core:
+    name: Build Sandboxie core (test-signed)
+    if: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup msbuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build Sandboxie x86 (DLLs & svc)
+        run: msbuild /t:build Sandboxie\SandboxDll.sln /p:Configuration="SbieRelease" /p:Platform=Win32 -maxcpucount:8
+
+      - name: Build Sandboxie x64 (all)
+        run: msbuild /t:build Sandboxie\Sandbox.sln /p:Configuration="SbieRelease" /p:Platform=x64 -maxcpucount:8
+
+      - name: Build Sandboxie x64 (drv)
+        run: msbuild /t:build Sandboxie\SandboxDrv.sln /p:Configuration="SbieRelease" /p:Platform=x64 -maxcpucount:8
+
+      - name: Package core (test-signed)
+        shell: pwsh
+        run: |
+          $readme = @"
+          Sandboxie core components built from DiskGuard repo (${env:GITHUB_SHA}).
+          IMPORTANT: SbieDrv.sys in this package is TEST-SIGNED.
+          It requires Windows test signing mode:
+              bcdedit /set testsigning on   (admin, reboot required)
+          Do not use this package for production. For production install the
+          officially signed Sandboxie-Plus installer instead.
+          "@
+          Set-Content -Path Core-README-TestSigned.txt -Value $readme -Encoding UTF8
+          Compress-Archive -Path Sandboxie\Bin\*, Core-README-TestSigned.txt `
+            -DestinationPath DiskGuard-Core-TestSigned-x64.zip -Force
+          Get-Item DiskGuard-Core-TestSigned-x64.zip | Format-Table Name, Length
+
+      - name: Upload core artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DiskGuard-Core-TestSigned-x64
+          path: DiskGuard-Core-TestSigned-x64.zip
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    needs: [build-app, build-core]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          ls -R dist
+          cd dist
+          gh release create "${GITHUB_REF_NAME}" \
+            "DiskGuard-Windows-x64/DiskGuard_0.1.0_x64-setup.exe" \
+            "DiskGuard-Windows-x64/DiskGuard-Portable-x64.zip" \
+            "DiskGuard-Core-TestSigned-x64/DiskGuard-Core-TestSigned-x64.zip" \
+            --title "DiskGuard ${GITHUB_REF_NAME}" \
+            --notes "DiskGuard 磁盘访问限制器。
+
+          - DiskGuard_0.1.0_x64-setup.exe：DiskGuard 前端安装包（需先安装 Sandboxie Plus 核心，推荐官方签名版）
+          - DiskGuard-Portable-x64.zip：DiskGuard 便携版
+          - DiskGuard-Core-TestSigned-x64.zip：Sandboxie 核心组件（测试签名驱动，仅用于开发验证，需 bcdedit /set testsigning on）
+
+          正式使用请配合官方签名的 Sandboxie Plus 安装包。详见仓库 DISKGUARD.md。"

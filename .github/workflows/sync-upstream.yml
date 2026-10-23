@@ -1,0 +1,48 @@
+name: Sync Upstream
+
+# 定期同步 sandboxie-plus/Sandboxie 上游更新。
+# 本仓库采用“上游快照 + 独立历史”方式（上游 SHA 记录于 UPSTREAM-REF.txt）：
+# 同步时用上游 master 的工作树整体替换本仓库中**除保留清单外**的全部文件。
+# 保留清单：app/、DISKGUARD.md、UPSTREAM-REF.txt、本文件、diskguard.yml
+
+on:
+  schedule:
+    - cron: "0 3 * * 1" # 每周一 03:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream https://github.com/sandboxie-plus/Sandboxie.git
+          git fetch upstream master
+          echo "UPSTREAM_SHA=$(git rev-parse upstream/master)" >> "$GITHUB_ENV"
+
+      - name: Sync upstream tree (keep-list preserved)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git worktree add /tmp/upstream upstream/master
+          rsync -a --delete /tmp/upstream/ ./ \
+            --exclude /.git \
+            --exclude /app \
+            --exclude /DISKGUARD.md \
+            --exclude /UPSTREAM-REF.txt \
+            --exclude /.github/workflows/diskguard.yml \
+            --exclude /.github/workflows/sync-upstream.yml
+          echo "${{ env.UPSTREAM_SHA }}" > UPSTREAM-REF.txt
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No upstream changes."
+          else
+            git commit -m "Sync upstream sandboxie-plus/Sandboxie @ ${UPSTREAM_SHA}"
+            git push
+          fi
