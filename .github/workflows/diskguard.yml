@@ -48,7 +48,7 @@ jobs:
           Get-ChildItem dist | Format-Table Name, Length
 
       - name: Upload app artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: DiskGuard-Windows-x64
           path: dist/*
@@ -92,7 +92,7 @@ jobs:
           Get-Item DiskGuard-Core-TestSigned-x64.zip | Format-Table Name, Length
 
       - name: Upload core artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: DiskGuard-Core-TestSigned-x64
           path: DiskGuard-Core-TestSigned-x64.zip
